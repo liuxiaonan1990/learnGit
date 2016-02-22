@@ -4,53 +4,106 @@ import threading
 import time
 import subprocess
 import Global
+import signal
+import logging 
 
 #写log方法
 #def appQueryLog(line):
+class Logger:        
+    def __init__(self, logName, logFile):
+        self._logger = logging.getLogger(logName)
+        handler = logging.FileHandler(logFile)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        handler.setFormatter(formatter)
+        self._logger.addHandler(handler)
+        self._logger.setLevel(logging.INFO)
+
+    def log(self, msg):
+        if self._logger is not None:
+            self._logger.info(msg)
+
+
+
+
 
 class Monitor:
     def __init__(self):
+        self.pid = 30000
         print "Monitor init!"
+
+    def initlog(self):
+        self.debuglogger = Logger("debuglogger",'statlog/%d_%d_%d.debug.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday))
+        self.debuglogger.log("debuglog init")
+        self.statlogger = Logger("statlogger",'statlog/%d_%d_%d.stat.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday))
+        self.debuglogger.log("statlog init")
+        self.querylogger = Logger("querylogger",'statlog/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday))
+        self.debuglogger.log("querylog init")
+
+
 
     def getstat(self):
         while True:
             time.sleep(10)
-            statlog = time.strftime("%Y-%m-%d %H:%M:%S\t", time.localtime()) 
+
+#            statlog = time.strftime("%Y-%m-%d %H:%M:%S\t", time.localtime()) 
+            statlog = ""
+            for type in Global.type_dict.keys():
+                if type.find("_last") == -1:
+                    type_last = type + "_last"
+                    inc = Global.type_dict[type] - Global.type_dict[type_last]
+                    Global.type_dict[type_last] =  Global.type_dict[type] 
+                    statlog += '%s:%d\t' % (type,inc)
+
+            statlog += '\n'
+            print statlog
+            self.statlogger.log(statlog)
+
+
+    #日志文件一般是按天产生，则通过在程序中判断文件的产生日期与当前时间，更换监控的日志文件
+    def run(self):
+        print '监控的日志文件是: %s' % self.logFile
+        self.debuglogger.log('监控的日志文件是: %s' % self.logFile)
+        self.popen = subprocess.Popen('tail -f ' + self.logFile, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        self.pid = self.popen.pid
+        print('Popen.pid:' + str(self.pid))
+        self.debuglogger.log('Popen.pid:' + str(self.pid))
+        while True:
+            line = self.popen.stdout.readline().strip()
+            # 判断内容是否为空
+            if line:
+                #print(line)
+                row = Row(line)
+                row.dealdata()
+                self.querylogger.log(row.log)
+                
             
+            # 当前时间
+            thistime = 'log/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday)
+            if thistime != self.logFile:
+                # 终止子进程
+                self.popen.kill()
+                print '杀死subprocess'
+                self.logFile = thistime
+                self.debuglogger.log('杀死subprocess')
+                break
+        #可能存在迭代层数过深的问题
+        self.run()
+
 
     def start(self):
 
-        self.t_stat = threading.Thread(target = getstat)#启动统计线程
+        self.initlog()
+        self.t_stat = threading.Thread(target = Monitor.getstat, args=(self,))#启动统计线程
+        self.t_stat.setDaemon(True)
         self.t_stat.start()
 
+        self.logFile = 'log/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday)  #当前日志
+        self.run()
 
-
-#日志文件一般是按天产生，则通过在程序中判断文件的产生日期与当前时间，更换监控的日志文件
-def monitorLog(logFile):
-    t_stat = threading.Thread(target = getstat)
-    t_stat.start()
-    print '监控的日志文件是: %s' % logFile
-    popen = subprocess.Popen('tail -f ' + logFile, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    pid = popen.pid
-    print('Popen.pid:' + str(pid))
-    while True:
-        line = popen.stdout.readline().strip()
-        # 判断内容是否为空
-        if line:
-            #print(line)
-            row = Row(line)
-            row.dealdata()
-            
+    def __del__(self):
+        print "del Monitor"
         
-        # 当前时间
-        thistime = 'log/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday)
-        if thistime != logFile:
-            # 终止子进程
-            popen.kill()
-            print '杀死subprocess'
-            break
-    #可能存在迭代层数过深的问题
-    monitorLog(thistime)
+
 
 
 class Row:
@@ -122,32 +175,18 @@ class Row:
         #print self.log 
         #print Global.type_dict
 
-def getstat():
-    while True:
-        time.sleep(10)
-
-        statlog = time.strftime("%Y-%m-%d %H:%M:%S\t", time.localtime()) 
-#        statlog = '%d_%d_%d %d:%d:%d\t' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday, time.localtime().tm_hour, time.localtime().tm_min, time.localtime().tm_sec)  
-        for type in Global.type_dict.keys():
-            if type.find("_last") == -1:
-                type_last = type + "_last"
-                inc = Global.type_dict[type] - Global.type_dict[type_last]
-                Global.type_dict[type_last] =  Global.type_dict[type] 
-                statlog += '%s:%d\t' % (type,inc)
-
-        statlog += '\n'
-        print statlog
-
-
-
-
 
         
 
 
 
 
+
 #主函数
 if __name__ == '__main__':
-    logFile = 'log/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday)  
-    monitorLog(logFile)
+    try:
+        monitor = Monitor()
+        monitor.start()
+    except KeyboardInterrupt:
+        print "kill monitor"
+        exit()
