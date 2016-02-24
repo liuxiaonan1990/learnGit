@@ -38,6 +38,8 @@ class Monitor:
         self.debuglogger.log("statlog init")
         self.querylogger = Logger("querylogger",'statlog/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday))
         self.debuglogger.log("querylog init")
+        self.errorlogger = Logger("errorlogger",'statlog/%d_%d_%d.error.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday))
+        self.debuglogger.log("errorlog init")
 
 
 
@@ -79,6 +81,7 @@ class Monitor:
             
             # 当前时间
             thistime = 'log/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday)
+            self.errorlogger.log('%s, %s' % (thistime, self.logFile))
             if thistime != self.logFile:
                 # 终止子进程
                 self.popen.kill()
