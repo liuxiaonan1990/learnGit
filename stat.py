@@ -70,16 +70,8 @@ class Monitor:
         print('Popen.pid:' + str(self.pid))
         self.debuglogger.log('Popen.pid:' + str(self.pid))
         while True:
-            line = self.popen.stdout.readline().strip()
-            # 判断内容是否为空
-            if line:
-                #print(line)
-                row = Row(line)
-                row.dealdata()
-                self.querylogger.log(row.log)
-                
-            
-            # 当前时间
+            '''
+            # 当前时间 
             thistime = 'log/%d_%d_%d.query.log' % (time.localtime().tm_year , time.localtime().tm_mon , time.localtime().tm_mday)
             self.errorlogger.log('%s, %s' % (thistime, self.logFile))
             if thistime != self.logFile:
@@ -89,8 +81,11 @@ class Monitor:
                 self.logFile = thistime
                 self.debuglogger.log('杀死subprocess')
                 break
-        #可能存在迭代层数过深的问题
-        self.run()
+            '''
+            line = self.popen.stdout.readline().strip()
+            row = Row(line)
+            row.dealdata()
+            self.querylogger.log(row.log)
 
 
     def start(self):
